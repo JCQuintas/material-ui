@@ -458,7 +458,7 @@ const attachPropsTable = (reactApi: ComponentReactApi) => {
   const propErrors: Array<[propName: string, error: Error]> = [];
   type Pair = [string, ComponentReactApi['propsTable'][string]];
   const componentProps: ComponentReactApi['propsTable'] = _.fromPairs(
-    Object.entries(reactApi.props!).map(([propName, propDescriptor]): Pair => {
+    Object.entries(reactApi.props).map(([propName, propDescriptor]): Pair => {
       let prop: DescribablePropDescriptor | null;
       try {
         prop = createDescribableProp(propDescriptor, propName);
@@ -645,8 +645,6 @@ export default async function generateComponentApi(
   }
 
   const filename = componentInfo.filename;
-  let reactApi: ComponentReactApi | undefined;
-
   const options = {
     savePropValueAsString: false,
     shouldExtractLiteralValuesFromEnum: true,
@@ -655,20 +653,7 @@ export default async function generateComponentApi(
     shouldIncludePropTagMap: true,
   };
 
-  if (componentInfo.isSystemComponent || componentInfo.name === 'Grid2') {
-    try {
-      reactApi = componentDocToComponentApi(docgenParse(src, options)?.at(0));
-    } catch (error) {
-      // fallback to default logic if there is no `create*` definition.
-      if ((error as Error).message === 'No suitable component definition found.') {
-        reactApi = componentDocToComponentApi(docgenParse(src, options)?.at(0));
-      } else {
-        throw error;
-      }
-    }
-  } else {
-    reactApi = componentDocToComponentApi(docgenParse(src, options)?.at(0));
-  }
+  const reactApi = componentDocToComponentApi(docgenParse(componentInfo.filename, options)?.at(0));
 
   if (!reactApi) {
     throw new Error(`No suitable component definition found in ${filename}`);

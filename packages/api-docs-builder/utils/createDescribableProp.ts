@@ -26,7 +26,7 @@ export default function createDescribableProp(
   prop: PropItem,
   propName: string,
 ): DescribablePropDescriptor | null {
-  const { defaultValue, description, required, type } = prop;
+  const { defaultValue, description, required, type, tags } = prop;
 
   const renderedDefaultValue = defaultValue?.value.replace(/\r?\n/g, '');
   const renderDefaultValue = Boolean(
@@ -44,30 +44,11 @@ export default function createDescribableProp(
   });
 
   if (
-    annotation.description.trim() === '' ||
-    annotation.tags.some((tag) => tag.title === 'ignore')
+    description.trim() === '' ||
+    // @ts-expect-error empty object type
+    tags?.ignore
   ) {
     return null;
-  }
-
-  if (defaultValue === undefined) {
-    // Assume that this prop:
-    // 1. Is typed by another component
-    // 2. Is forwarded to that component
-    // Then validation is handled by the other component.
-    // Though this does break down if the prop is used in other capacity in the implementation.
-    // So let's hope we don't make this mistake too often.
-  } else if (defaultValue !== undefined && renderDefaultValue) {
-    const shouldHaveDefaultAnnotation =
-      // Discriminator for polymorphism which is not documented at the component level.
-      // The documentation of `component` does not know in which component it is used.
-      propName !== 'component';
-
-    if (shouldHaveDefaultAnnotation) {
-      throw new Error(
-        `JSDoc @default annotation not found. Add \`@default ${defaultValue.value}\` to the JSDoc of this prop.`,
-      );
-    }
   }
 
   return {

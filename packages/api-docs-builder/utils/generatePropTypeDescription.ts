@@ -105,9 +105,9 @@ export default function generatePropTypeDescription(type: PropItemType): string 
 
     case 'union':
       return (
-        type.value
+        (type.value as { value: string }[])
           .map((type2) => {
-            return generatePropTypeDescription(type2);
+            return escapeCell(type2.value);
           })
           // Display one value per line as it's better for visibility.
           .join('<br>&#124;&nbsp;')
