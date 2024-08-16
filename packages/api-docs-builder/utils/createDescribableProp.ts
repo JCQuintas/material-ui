@@ -1,14 +1,15 @@
 import * as doctrine from 'doctrine';
-import { PropDescriptor, PropTypeDescriptor } from 'react-docgen';
+import { PropItem, PropItemType } from 'react-docgen-typescript';
 
-export interface DescribeablePropDescriptor {
+export interface DescribablePropDescriptor {
   annotation: doctrine.Annotation;
   defaultValue: string | null;
   required: boolean;
-  type: PropTypeDescriptor;
+  type: PropItemType;
+  tags: PropItem['tags'];
 }
 
-export type CreateDescribeablePropSettings = {
+export type CreateDescribablePropSettings = {
   /**
    * Names of props that do not check if the annotations equal runtime default.
    */
@@ -21,14 +22,11 @@ export type CreateDescribeablePropSettings = {
  * @param prop
  * @param propName
  */
-export default function createDescribeableProp(
-  prop: PropDescriptor,
+export default function createDescribableProp(
+  prop: PropItem,
   propName: string,
-  settings: CreateDescribeablePropSettings = {},
-): DescribeablePropDescriptor | null {
-  const { defaultValue, jsdocDefaultValue, description, required, type } = prop;
-
-  const { propsWithoutDefaultVerification = [] } = settings;
+): DescribablePropDescriptor | null {
+  const { defaultValue, description, required, type } = prop;
 
   const renderedDefaultValue = defaultValue?.value.replace(/\r?\n/g, '');
   const renderDefaultValue = Boolean(
@@ -52,14 +50,14 @@ export default function createDescribeableProp(
     return null;
   }
 
-  if (jsdocDefaultValue !== undefined && defaultValue === undefined) {
+  if (defaultValue === undefined) {
     // Assume that this prop:
     // 1. Is typed by another component
     // 2. Is forwarded to that component
     // Then validation is handled by the other component.
     // Though this does break down if the prop is used in other capacity in the implementation.
     // So let's hope we don't make this mistake too often.
-  } else if (jsdocDefaultValue === undefined && defaultValue !== undefined && renderDefaultValue) {
+  } else if (defaultValue !== undefined && renderDefaultValue) {
     const shouldHaveDefaultAnnotation =
       // Discriminator for polymorphism which is not documented at the component level.
       // The documentation of `component` does not know in which component it is used.
@@ -70,16 +68,6 @@ export default function createDescribeableProp(
         `JSDoc @default annotation not found. Add \`@default ${defaultValue.value}\` to the JSDoc of this prop.`,
       );
     }
-  } else if (
-    jsdocDefaultValue !== undefined &&
-    !propsWithoutDefaultVerification.includes(propName)
-  ) {
-    // `defaultValue` can't be undefined or we would've thrown earlier.
-    if (jsdocDefaultValue.value !== defaultValue!.value) {
-      throw new Error(
-        `Expected JSDoc @default annotation for prop '${propName}' of "${jsdocDefaultValue.value}" to equal runtime default value of "${defaultValue?.value}"`,
-      );
-    }
   }
 
   return {
@@ -87,5 +75,6 @@ export default function createDescribeableProp(
     defaultValue: renderDefaultValue ? renderedDefaultValue! : null,
     required: Boolean(required),
     type,
+    tags: prop.tags,
   };
 }

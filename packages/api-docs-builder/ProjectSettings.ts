@@ -1,11 +1,11 @@
-import { CreateTypeScriptProjectOptions } from './utils/createTypeScriptProject';
-import { CreateDescribeablePropSettings } from './utils/createDescribeableProp';
 import {
   ComponentClassDefinition,
   ComponentReactApi,
   HookReactApi,
 } from './types/ApiBuilder.types';
-import { Slot, ComponentInfo, HookInfo } from './types/utils.types';
+import { ComponentInfo, HookInfo, Slot } from './types/utils.types';
+import { CreateDescribablePropSettings } from './utils/createDescribableProp';
+import { CreateTypeScriptProjectOptions } from './utils/createTypeScriptProject';
 
 export type SortingStrategiesType = {
   /**
@@ -89,7 +89,7 @@ export interface ProjectSettings {
   /**
    * Settings to configure props definition tests.
    */
-  propsSettings?: CreateDescribeablePropSettings;
+  propsSettings?: CreateDescribablePropSettings;
   /**
    * If `true`, the script does not generate JS page file.
    * Once we have the API tabs in all projects, we can make this `true` by default.
