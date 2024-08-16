@@ -591,29 +591,6 @@ const defaultGetComponentImports = (name: string, filename: string) => {
   return [subpathImport, rootImport];
 };
 
-// export interface IN {
-//   name: string;
-//   required: boolean;
-//   type: PropItemType;
-//   description: string;
-//   defaultValue: any;
-//   parent?: ParentType;
-//   declarations?: ParentType[];
-//   tags?: {};
-// }
-
-// export interface OUT {
-//   defaultValue?: { computed: boolean; value: string };
-//   // augmented by docs/src/modules/utils/defaultPropsHandler.js
-//   jsdocDefaultValue?: { computed?: boolean; value: string };
-//   description?: string;
-//   required?: boolean;
-//   /**
-//    * react-docgen has this as nullable but it was never treated as such
-//    */
-//   type: PropTypeDescriptor;
-// }
-
 const componentDocToComponentApi = (componentDoc?: ComponentDoc): ComponentReactApi => {
   if (!componentDoc) {
     return {} as ComponentReactApi;
