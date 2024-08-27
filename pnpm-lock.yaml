@@ -293,6 +293,9 @@ importers:
       process:
         specifier: ^0.11.10
         version: 0.11.10
+      react-docgen-typescript:
+        specifier: ^2.2.2
+        version: 2.2.2(typescript@5.4.5)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -10691,6 +10694,11 @@ packages:
 
   react-display-name@0.2.5:
     resolution: {integrity: sha512-I+vcaK9t4+kypiSgaiVWAipqHRXYmZIuAiS8vzFvXHHXVigg/sMKwlRgLy6LH2i3rmP+0Vzfl5lFsFRwF1r3pg==}
+
+  react-docgen-typescript@2.2.2:
+    resolution: {integrity: sha512-tvg2ZtOpOi6QDwsb3GZhOjDkkX0h8Z2gipvTg6OVMUyoYoURhEiRNePT8NZItTVCDh39JJHnLdfCOkzoLbFnTg==}
+    peerDependencies:
+      typescript: '>= 4.3.x'
 
   react-docgen@5.4.3:
     resolution: {integrity: sha512-xlLJyOlnfr8lLEEeaDZ+X2J/KJoe6Nr9AzxnkdQWush5hz2ZSu66w6iLMOScMmxoSHWpWMn+k3v5ZiyCfcWsOA==}
@@ -22849,6 +22857,10 @@ snapshots:
       - utf-8-validate
 
   react-display-name@0.2.5: {}
+
+  react-docgen-typescript@2.2.2(typescript@5.4.5):
+    dependencies:
+      typescript: 5.4.5
 
   react-docgen@5.4.3:
     dependencies:

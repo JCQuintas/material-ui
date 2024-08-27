@@ -1,36 +1,31 @@
-import { readFileSync, writeFileSync } from 'fs';
-import path from 'path';
-import * as astTypes from 'ast-types';
 import * as babel from '@babel/core';
 import traverse from '@babel/traverse';
+import { renderMarkdown } from '@mui/internal-markdown';
+import { Annotation, parse as parseDoctrine } from 'doctrine';
+import { readFileSync, writeFileSync } from 'fs';
 import * as _ from 'lodash';
 import kebabCase from 'lodash/kebabCase';
+import type { Link } from 'mdast';
+import path from 'path';
+import { ComponentDoc, parse as docgenParse } from 'react-docgen-typescript';
 import remark from 'remark';
 import remarkVisit from 'unist-util-visit';
-import type { Link } from 'mdast';
-import { defaultHandlers, parse as docgenParse } from 'react-docgen';
-import { renderMarkdown } from '@mui/internal-markdown';
-import { parse as parseDoctrine, Annotation } from 'doctrine';
 import { ProjectSettings, SortingStrategiesType } from '../ProjectSettings';
 import { toGitHubPath, writePrettifiedFile } from '../buildApiUtils';
-import muiDefaultPropsHandler from '../utils/defaultPropsHandler';
-import parseTest from '../utils/parseTest';
-import generatePropTypeDescription, { getChained } from '../utils/generatePropTypeDescription';
-import createDescribeableProp, {
-  CreateDescribeablePropSettings,
-  DescribeablePropDescriptor,
-} from '../utils/createDescribeableProp';
-import generatePropDescription from '../utils/generatePropDescription';
-import { TypeScriptProject } from '../utils/createTypeScriptProject';
-import parseSlotsAndClasses from '../utils/parseSlotsAndClasses';
-import generateApiTranslations from '../utils/generateApiTranslation';
-import { sortAlphabetical } from '../utils/sortObjects';
 import {
   AdditionalPropsInfo,
   ComponentApiContent,
   ComponentReactApi,
 } from '../types/ApiBuilder.types';
-import { Slot, ComponentInfo } from '../types/utils.types';
+import { ComponentInfo, Slot } from '../types/utils.types';
+import createDescribableProp, { DescribablePropDescriptor } from '../utils/createDescribableProp';
+import { TypeScriptProject } from '../utils/createTypeScriptProject';
+import generateApiTranslations from '../utils/generateApiTranslation';
+import generatePropDescription from '../utils/generatePropDescription';
+import generatePropTypeDescription from '../utils/generatePropTypeDescription';
+import parseSlotsAndClasses from '../utils/parseSlotsAndClasses';
+import parseTest from '../utils/parseTest';
+import { sortAlphabetical } from '../utils/sortObjects';
 
 const cssComponents = ['Box', 'Grid', 'Typography', 'Stack'];
 
@@ -394,11 +389,7 @@ const generateApiPage = async (
   }
 };
 
-const attachTranslations = (
-  reactApi: ComponentReactApi,
-  deprecationInfo: string | undefined,
-  settings?: CreateDescribeablePropSettings,
-) => {
+const attachTranslations = (reactApi: ComponentReactApi, deprecationInfo: string | undefined) => {
   const translations: ComponentReactApi['translations'] = {
     componentDescription: reactApi.description,
     deprecationInfo: deprecationInfo ? renderMarkdown(deprecationInfo) : undefined,
@@ -406,9 +397,9 @@ const attachTranslations = (
     classDescriptions: {},
   };
   Object.entries(reactApi.props!).forEach(([propName, propDescriptor]) => {
-    let prop: DescribeablePropDescriptor | null;
+    let prop: DescribablePropDescriptor | null;
     try {
-      prop = createDescribeableProp(propDescriptor, propName, settings);
+      prop = createDescribableProp(propDescriptor, propName);
     } catch (error) {
       prop = null;
     }
@@ -463,17 +454,14 @@ const attachTranslations = (
   reactApi.translations = translations;
 };
 
-const attachPropsTable = (
-  reactApi: ComponentReactApi,
-  settings?: CreateDescribeablePropSettings,
-) => {
+const attachPropsTable = (reactApi: ComponentReactApi) => {
   const propErrors: Array<[propName: string, error: Error]> = [];
   type Pair = [string, ComponentReactApi['propsTable'][string]];
   const componentProps: ComponentReactApi['propsTable'] = _.fromPairs(
-    Object.entries(reactApi.props!).map(([propName, propDescriptor]): Pair => {
-      let prop: DescribeablePropDescriptor | null;
+    Object.entries(reactApi.props).map(([propName, propDescriptor]): Pair => {
+      let prop: DescribablePropDescriptor | null;
       try {
-        prop = createDescribeableProp(propDescriptor, propName, settings);
+        prop = createDescribableProp(propDescriptor, propName);
       } catch (error) {
         propErrors.push([`[${reactApi.name}] \`${propName}\``, error as Error]);
         prop = null;
@@ -483,7 +471,7 @@ const attachPropsTable = (
         return [] as any;
       }
 
-      const defaultValue = propDescriptor.jsdocDefaultValue?.value;
+      const defaultValue = propDescriptor.defaultValue?.value;
 
       const {
         signature: signatureType,
@@ -492,12 +480,8 @@ const attachPropsTable = (
         seeMore,
       } = generatePropDescription(prop, propName);
       const propTypeDescription = generatePropTypeDescription(propDescriptor.type);
-      const chainedPropType = getChained(prop.type);
 
-      const requiredProp =
-        prop.required ||
-        /\.isRequired/.test(prop.type.raw) ||
-        (chainedPropType !== false && chainedPropType.required);
+      const requiredProp = prop.required;
 
       const deprecation = (propDescriptor.description || '').match(/@deprecated(\s+(?<info>.*))?/);
 
@@ -607,6 +591,18 @@ const defaultGetComponentImports = (name: string, filename: string) => {
   return [subpathImport, rootImport];
 };
 
+const componentDocToComponentApi = (componentDoc?: ComponentDoc): ComponentReactApi => {
+  if (!componentDoc) {
+    return {} as ComponentReactApi;
+  }
+
+  return {
+    description: componentDoc.description,
+    name: componentDoc.displayName,
+    props: componentDoc.props,
+  } as ComponentReactApi;
+};
+
 /**
  * - Build react component (specified filename) api by lookup at its definition (.d.ts or ts)
  *   and then generate the API page + json data
@@ -626,64 +622,26 @@ export default async function generateComponentApi(
   }
 
   const filename = componentInfo.filename;
-  let reactApi: ComponentReactApi;
+  const options = {
+    savePropValueAsString: false,
+    shouldExtractLiteralValuesFromEnum: true,
+    shouldExtractValuesFromUnion: true,
+    shouldRemoveUndefinedFromOptional: true,
+    shouldIncludePropTagMap: true,
+  };
 
-  if (componentInfo.isSystemComponent || componentInfo.name === 'Grid2') {
-    try {
-      reactApi = docgenParse(
-        src,
-        (ast) => {
-          let node;
-          astTypes.visit(ast, {
-            visitVariableDeclaration: (variablePath) => {
-              const definitions: any[] = [];
-              if (variablePath.node.declarations) {
-                variablePath
-                  .get('declarations')
-                  .each((declarator: any) => definitions.push(declarator.get('init')));
-              }
+  const reactApi = componentDocToComponentApi(docgenParse(componentInfo.filename, options)?.at(0));
 
-              definitions.forEach((definition) => {
-                // definition.value.expression is defined when the source is in TypeScript.
-                const expression = definition.value?.expression
-                  ? definition.get('expression')
-                  : definition;
-                if (expression.value?.callee) {
-                  const definitionName = expression.value.callee.name;
-
-                  if (definitionName === `create${componentInfo.name}`) {
-                    node = expression;
-                  }
-                }
-              });
-
-              return false;
-            },
-          });
-
-          return node;
-        },
-        defaultHandlers,
-        { filename },
-      );
-    } catch (error) {
-      // fallback to default logic if there is no `create*` definition.
-      if ((error as Error).message === 'No suitable component definition found.') {
-        reactApi = docgenParse(src, null, defaultHandlers.concat(muiDefaultPropsHandler), {
-          filename,
-        });
-      } else {
-        throw error;
-      }
-    }
-  } else {
-    reactApi = docgenParse(src, null, defaultHandlers.concat(muiDefaultPropsHandler), {
-      filename,
-    });
+  if (!reactApi) {
+    throw new Error(`No suitable component definition found in ${filename}`);
   }
 
   if (!reactApi.props) {
     reactApi.props = {};
+  }
+
+  if (!reactApi.description) {
+    reactApi.description = '';
   }
 
   const { getComponentImports = defaultGetComponentImports } = projectSettings;
@@ -750,8 +708,8 @@ export default async function generateComponentApi(
 
   reactApi.deprecated = !!deprecation || undefined;
 
-  attachPropsTable(reactApi, projectSettings.propsSettings);
-  attachTranslations(reactApi, deprecationInfo, projectSettings.propsSettings);
+  attachPropsTable(reactApi);
+  attachTranslations(reactApi, deprecationInfo);
 
   // eslint-disable-next-line no-console
   console.log('Built API docs for', reactApi.apiPathname);

@@ -1,13 +1,11 @@
 import * as doctrine from 'doctrine';
-import * as recast from 'recast';
-import { PropTypeDescriptor } from 'react-docgen';
-import {
-  isElementTypeAcceptingRefProp,
-  isElementAcceptingRefProp,
-} from './generatePropTypeDescription';
-import { DescribeablePropDescriptor } from './createDescribeableProp';
-import escapeCell from './escapeCell';
 import { SeeMore } from '../types/utils.types';
+import { DescribablePropDescriptor } from './createDescribableProp';
+import escapeCell from './escapeCell';
+import {
+  isElementAcceptingRefProp,
+  isElementTypeAcceptingRefProp,
+} from './generatePropTypeDescription';
 
 function resolveType(type: NonNullable<doctrine.Tag['type']>): string {
   if (type.type === 'AllLiteral') {
@@ -56,16 +54,13 @@ function resolveType(type: NonNullable<doctrine.Tag['type']>): string {
   throw new TypeError(`resolveType for '${type.type}' not implemented`);
 }
 
-function getDeprecatedInfo(type: PropTypeDescriptor) {
-  const marker = /deprecatedPropType\((\r*\n)*\s*PropTypes\./g;
-  const match = type.raw.match(marker);
-  const startIndex = type.raw.search(marker);
-  if (match) {
-    const offset = match[0].length;
-
+function getDeprecatedInfo(prop: DescribablePropDescriptor) {
+  // @ts-expect-error empty object type
+  if (prop.tags?.deprecated) {
     return {
-      propTypes: type.raw.substring(startIndex + offset, type.raw.indexOf(',')),
-      explanation: recast.parse(type.raw).program.body[0].expression.arguments[1].value,
+      propTypes: prop.type.raw,
+      // @ts-expect-error empty object type
+      explanation: prop.tags.deprecated,
     };
   }
 
@@ -73,7 +68,7 @@ function getDeprecatedInfo(type: PropTypeDescriptor) {
 }
 
 export default function generatePropDescription(
-  prop: DescribeablePropDescriptor,
+  prop: DescribablePropDescriptor,
   propName: string,
 ): {
   deprecated: string;
@@ -89,7 +84,7 @@ export default function generatePropDescription(
   let deprecated = '';
 
   if (type.name === 'custom') {
-    const deprecatedInfo = getDeprecatedInfo(type);
+    const deprecatedInfo = getDeprecatedInfo(prop);
     if (deprecatedInfo) {
       deprecated = `*Deprecated*. ${deprecatedInfo.explanation}<br><br>`;
     }

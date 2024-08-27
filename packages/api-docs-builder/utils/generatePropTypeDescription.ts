@@ -1,24 +1,24 @@
+import { parse as docgenParse, PropItemType } from 'react-docgen-typescript';
 import * as recast from 'recast';
-import { parse as docgenParse, PropTypeDescriptor } from 'react-docgen';
 import escapeCell from './escapeCell';
 
-function getDeprecatedInfo(type: PropTypeDescriptor) {
+function getDeprecatedInfo(type: PropItemType) {
   const marker = /deprecatedPropType\((\r*\n)*\s*PropTypes\./g;
-  const match = type.raw.match(marker);
-  const startIndex = type.raw.search(marker);
+  const match = type.raw?.match(marker);
+  const startIndex = type.raw?.search(marker);
   if (match) {
     const offset = match[0].length;
 
     return {
-      propTypes: type.raw.substring(startIndex + offset, type.raw.indexOf(',')),
-      explanation: recast.parse(type.raw).program.body[0].expression.arguments[1].value,
+      propTypes: type.raw?.substring((startIndex ?? 0) + offset, type.raw.indexOf(',')),
+      explanation: recast.parse(type.raw ?? '').program.body[0].expression.arguments[1].value,
     };
   }
 
   return false;
 }
 
-export function getChained(type: PropTypeDescriptor) {
+export function getChained(type: PropItemType) {
   if (type.raw) {
     const marker = 'chainPropTypes';
     const indexStart = type.raw.indexOf(marker);
@@ -33,14 +33,10 @@ export function getChained(type: PropTypeDescriptor) {
         }
         export default Foo
       `,
-        null,
-        null,
-        // helps react-docgen pickup babel.config.js
-        { filename: './' },
-      );
+      ).at(0);
       return {
-        type: parsed.props.bar.type,
-        required: parsed.props.bar.required,
+        type: parsed?.props.bar.type,
+        required: parsed?.props.bar.required,
       };
     }
   }
@@ -48,23 +44,23 @@ export function getChained(type: PropTypeDescriptor) {
   return false;
 }
 
-export function isElementTypeAcceptingRefProp(type: PropTypeDescriptor): boolean {
+export function isElementTypeAcceptingRefProp(type: PropItemType): boolean {
   return type.raw === 'elementTypeAcceptingRef';
 }
 
-function isRefType(type: PropTypeDescriptor): boolean {
+function isRefType(type: PropItemType): boolean {
   return type.raw === 'refType';
 }
 
-function isIntegerType(type: PropTypeDescriptor): boolean {
-  return type.raw.startsWith('integerPropType');
+function isIntegerType(type: PropItemType): boolean {
+  return type.raw?.startsWith('integerPropType') ?? false;
 }
 
-export function isElementAcceptingRefProp(type: PropTypeDescriptor): boolean {
-  return /^elementAcceptingRef/.test(type.raw);
+export function isElementAcceptingRefProp(type: PropItemType): boolean {
+  return /^elementAcceptingRef/.test(type.raw ?? '');
 }
 
-export default function generatePropTypeDescription(type: PropTypeDescriptor): string | undefined {
+export default function generatePropTypeDescription(type: PropItemType): string | undefined {
   switch (type.name) {
     case 'custom': {
       if (isElementTypeAcceptingRefProp(type)) {
@@ -94,11 +90,6 @@ export default function generatePropTypeDescription(type: PropTypeDescriptor): s
         } as any);
       }
 
-      const chained = getChained(type);
-      if (chained !== false) {
-        return generatePropTypeDescription(chained.type);
-      }
-
       return type.raw;
     }
 
@@ -114,16 +105,16 @@ export default function generatePropTypeDescription(type: PropTypeDescriptor): s
 
     case 'union':
       return (
-        type.value
+        (type.value as { value: string }[])
           .map((type2) => {
-            return generatePropTypeDescription(type2);
+            return escapeCell(type2.value);
           })
           // Display one value per line as it's better for visibility.
           .join('<br>&#124;&nbsp;')
       );
     case 'enum':
       return (
-        type.value
+        (type.value as { value: string }[])
           .map((type2) => {
             return escapeCell(type2.value);
           })
