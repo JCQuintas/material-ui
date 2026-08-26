@@ -156,10 +156,7 @@ export default defineConfig(
   // Test start
   {
     files: [`**/*${EXTENSION_TEST_FILE}`],
-    extends: createTestConfig({
-      useMocha: false,
-      useVitest: true,
-    }),
+    extends: createTestConfig(),
     rules: {
       'mui/material-ui-no-empty-box': 'off',
       // Disabled temporarily. Enable one by one.
